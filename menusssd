@@ -61,7 +61,7 @@ local function shadow(parent)
     s.Position = UDim2.new(0.5, 0, 0.5, 4)
     s.Size = UDim2.new(1, 24, 1, 24)
     s.ZIndex = parent.ZIndex - 1
-    s.Image = "rbxassetid://6015897843"
+    s.Image = "rbxassetid://97231287574056"
     s.ImageColor3 = THEME.Shadow
     s.ImageTransparency = 0.5
     s.ScaleType = Enum.ScaleType.Slice
