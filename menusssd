@@ -1,690 +1,139 @@
---// Fxx Menu - UI do zero
---// Interface inspirada no layout da imagem enviada.
---// Esta versão é apenas a interface: os botões/sliders não executam cheats.
+-- --- fling_test_gui.lua ---
+-- Cola isso direto no executor e roda
 
 local Players = game:GetService("Players")
-local UserInputService = game:GetService("UserInputService")
-local TweenService = game:GetService("TweenService")
-
 local LocalPlayer = Players.LocalPlayer
-local PlayerGui = LocalPlayer:WaitForChild("PlayerGui")
 
--- Remove uma versão anterior
-local old = PlayerGui:FindFirstChild("FxxMenu")
-if old then
-    old:Destroy()
-end
+-- ══════════════════════════════════════
+--  CONFIG
+-- ══════════════════════════════════════
+local FLING_FORCE     = 5e4
+local COOLDOWN        = 1
+local cooldowns: {[string]: number} = {}
+local flingEnabled    = false
 
-local GUI = Instance.new("ScreenGui")
-GUI.Name = "FxxMenu"
-GUI.ResetOnSpawn = false
-GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-GUI.Parent = PlayerGui
+-- ══════════════════════════════════════
+--  FLING CORE
+-- ══════════════════════════════════════
+local function flingCharacter(character: Model, origin: Vector3)
+    local rootPart = character:FindFirstChild("HumanoidRootPart")
+    local humanoid = character:FindFirstChildOfClass("Humanoid")
+    if not rootPart or not humanoid or humanoid.Health <= 0 then return end
 
---==================================================
--- CONFIG
---==================================================
+    local player = Players:GetPlayerFromCharacter(character)
+    if not player or player == LocalPlayer then return end
 
-local Theme = {
-    Background = Color3.fromRGB(18, 18, 28),
-    Panel = Color3.fromRGB(27, 27, 43),
-    Panel2 = Color3.fromRGB(32, 32, 50),
-    Stroke = Color3.fromRGB(67, 59, 104),
-    Accent = Color3.fromRGB(103, 72, 214),
-    Accent2 = Color3.fromRGB(124, 89, 235),
-    Text = Color3.fromRGB(235, 235, 245),
-    SubText = Color3.fromRGB(155, 155, 175),
-    Red = Color3.fromRGB(215, 63, 70),
-}
+    local name = player.Name
+    local now  = tick()
+    if cooldowns[name] and now - cooldowns[name] < COOLDOWN then return end
+    cooldowns[name] = now
 
-local function Corner(obj, radius)
-    local c = Instance.new("UICorner")
-    c.CornerRadius = UDim.new(0, radius)
-    c.Parent = obj
-    return c
-end
+    local dir = (rootPart.Position - origin)
+    dir = (dir.Magnitude > 0 and dir.Unit or Vector3.new(0, 1, 0))
+    local launchDir = (dir + Vector3.new(0, 0.6, 0)).Unit
 
-local function Stroke(obj, color, thickness)
-    local s = Instance.new("UIStroke")
-    s.Color = color or Theme.Stroke
-    s.Thickness = thickness or 1
-    s.Transparency = 0
-    s.Parent = obj
-    return s
-end
+    humanoid.PlatformStand = true
+    rootPart.AssemblyLinearVelocity = launchDir * FLING_FORCE
 
-local function Label(parent, text, size, color)
-    local l = Instance.new("TextLabel")
-    l.BackgroundTransparency = 1
-    l.Text = text
-    l.Font = Enum.Font.Gotham
-    l.TextSize = size or 13
-    l.TextColor3 = color or Theme.Text
-    l.TextXAlignment = Enum.TextXAlignment.Left
-    l.Parent = parent
-    return l
-end
-
---==================================================
--- JANELA PRINCIPAL
---==================================================
-
-local Shadow = Instance.new("Frame")
-Shadow.Name = "Shadow"
-Shadow.AnchorPoint = Vector2.new(0.5, 0.5)
-Shadow.Position = UDim2.fromScale(0.5, 0.5)
-Shadow.Size = UDim2.fromOffset(440, 480)
-Shadow.BackgroundColor3 = Color3.new(0,0,0)
-Shadow.BackgroundTransparency = 0.55
-Shadow.BorderSizePixel = 0
-Shadow.ZIndex = 1
-Shadow.Parent = GUI
-Corner(Shadow, 12)
-
-local Main = Instance.new("Frame")
-Main.Name = "Main"
-Main.AnchorPoint = Vector2.new(0.5, 0.5)
-Main.Position = UDim2.fromScale(0.5, 0.5)
-Main.Size = UDim2.fromOffset(420, 460)
-Main.BackgroundColor3 = Theme.Background
-Main.BorderSizePixel = 0
-Main.ZIndex = 2
-Main.Parent = GUI
-Corner(Main, 12)
-Stroke(Main, Theme.Stroke, 1)
-
---==================================================
--- CABEÇALHO
---==================================================
-
-local Header = Instance.new("Frame")
-Header.Name = "Header"
-Header.Size = UDim2.new(1, 0, 0, 52)
-Header.BackgroundColor3 = Theme.Background
-Header.BorderSizePixel = 0
-Header.ZIndex = 10
-Header.Parent = Main
-Corner(Header, 12)
-
-local Title = Label(Header, "Fxx menu", 14, Theme.Text)
-Title.Position = UDim2.fromOffset(15, 7)
-Title.Size = UDim2.new(1, -100, 0, 20)
-Title.Font = Enum.Font.GothamBold
-
-local Version = Label(Header, "v3.0 • Fxx Menu", 9, Theme.SubText)
-Version.Position = UDim2.fromOffset(15, 26)
-Version.Size = UDim2.new(1, -100, 0, 14)
-
-local Minimize = Instance.new("TextButton")
-Minimize.Name = "Minimize"
-Minimize.Text = "−"
-Minimize.Font = Enum.Font.GothamBold
-Minimize.TextSize = 17
-Minimize.TextColor3 = Theme.Text
-Minimize.BackgroundColor3 = Color3.fromRGB(55, 55, 80)
-Minimize.BorderSizePixel = 0
-Minimize.Size = UDim2.fromOffset(23, 23)
-Minimize.Position = UDim2.new(1, -62, 0, 12)
-Minimize.ZIndex = 11
-Minimize.Parent = Header
-Corner(Minimize, 6)
-
-local Close = Instance.new("TextButton")
-Close.Name = "Close"
-Close.Text = "×"
-Close.Font = Enum.Font.GothamBold
-Close.TextSize = 17
-Close.TextColor3 = Color3.fromRGB(255,255,255)
-Close.BackgroundColor3 = Theme.Red
-Close.BorderSizePixel = 0
-Close.Size = UDim2.fromOffset(23, 23)
-Close.Position = UDim2.new(1, -33, 0, 12)
-Close.ZIndex = 11
-Close.Parent = Header
-Corner(Close, 6)
-
-local HeaderLine = Instance.new("Frame")
-HeaderLine.BackgroundColor3 = Theme.Accent
-HeaderLine.BorderSizePixel = 0
-HeaderLine.Size = UDim2.new(1, 0, 0, 1)
-HeaderLine.Position = UDim2.fromOffset(0, 51)
-HeaderLine.ZIndex = 11
-HeaderLine.Parent = Header
-
---==================================================
--- ARRASTAR: funciona com mouse e touch
---==================================================
-
-local dragging = false
-local dragStart
-local startMain
-local startShadow
-
-local function beginDrag(input)
-    if input.UserInputType ~= Enum.UserInputType.MouseButton1
-        and input.UserInputType ~= Enum.UserInputType.Touch then
-        return
-    end
-
-    dragging = true
-    dragStart = input.Position
-    startMain = Main.Position
-    startShadow = Shadow.Position
-
-    local connection
-    connection = input.Changed:Connect(function()
-        if input.UserInputState == Enum.UserInputState.End then
-            dragging = false
-            if connection then connection:Disconnect() end
+    task.delay(0.5, function()
+        if humanoid and humanoid.Parent then
+            humanoid.PlatformStand = false
         end
     end)
 end
 
-Header.InputBegan:Connect(beginDrag)
+local connections: {RBXScriptConnection} = {}
 
-UserInputService.InputChanged:Connect(function(input)
-    if not dragging then return end
-
-    if input.UserInputType ~= Enum.UserInputType.MouseMovement
-        and input.UserInputType ~= Enum.UserInputType.Touch then
-        return
-    end
-
-    local delta = input.Position - dragStart
-
-    Main.Position = UDim2.new(
-        startMain.X.Scale,
-        startMain.X.Offset + delta.X,
-        startMain.Y.Scale,
-        startMain.Y.Offset + delta.Y
-    )
-
-    Shadow.Position = UDim2.new(
-        startShadow.X.Scale,
-        startShadow.X.Offset + delta.X,
-        startShadow.Y.Scale,
-        startShadow.Y.Offset + delta.Y
-    )
-end)
-
---==================================================
--- ÁREA DAS ABAS
---==================================================
-
-local TabsBar = Instance.new("Frame")
-TabsBar.Name = "TabsBar"
-TabsBar.Position = UDim2.fromOffset(10, 61)
-TabsBar.Size = UDim2.new(1, -20, 0, 35)
-TabsBar.BackgroundTransparency = 1
-TabsBar.BorderSizePixel = 0
-TabsBar.ZIndex = 5
-TabsBar.Parent = Main
-
-local TabsLayout = Instance.new("UIListLayout")
-TabsLayout.FillDirection = Enum.FillDirection.Horizontal
-TabsLayout.HorizontalAlignment = Enum.HorizontalAlignment.Left
-TabsLayout.VerticalAlignment = Enum.VerticalAlignment.Center
-TabsLayout.Padding = UDim.new(0, 5)
-TabsLayout.SortOrder = Enum.SortOrder.LayoutOrder
-TabsLayout.Parent = TabsBar
-
-local Content = Instance.new("Frame")
-Content.Name = "Content"
-Content.Position = UDim2.fromOffset(10, 102)
-Content.Size = UDim2.new(1, -20, 1, -112)
-Content.BackgroundTransparency = 1
-Content.BorderSizePixel = 0
-Content.ClipsDescendants = true
-Content.ZIndex = 4
-Content.Parent = Main
-
---==================================================
--- SISTEMA DE PÁGINAS
---==================================================
-
-local pages = {}
-local tabButtons = {}
-
-local function CreatePage(name)
-    local page = Instance.new("ScrollingFrame")
-    page.Name = name
-    page.Size = UDim2.fromScale(1,1)
-    page.BackgroundTransparency = 1
-    page.BorderSizePixel = 0
-    page.ScrollBarThickness = 3
-    page.ScrollBarImageColor3 = Theme.Accent
-    page.CanvasSize = UDim2.new()
-    page.AutomaticCanvasSize = Enum.AutomaticSize.Y
-    page.ScrollingDirection = Enum.ScrollingDirection.Y
-    page.Visible = false
-    page.ZIndex = 5
-    page.Parent = Content
-
-    local layout = Instance.new("UIListLayout")
-    layout.Padding = UDim.new(0, 7)
-    layout.SortOrder = Enum.SortOrder.LayoutOrder
-    layout.Parent = page
-
-    local pad = Instance.new("UIPadding")
-    pad.PaddingTop = UDim.new(0, 4)
-    pad.PaddingBottom = UDim.new(0, 10)
-    pad.PaddingLeft = UDim.new(0, 1)
-    pad.PaddingRight = UDim.new(4, 0)
-    pad.Parent = page
-
-    pages[name] = page
-    return page
-end
-
-local function CreateTab(name, icon)
-    local b = Instance.new("TextButton")
-    b.Name = name .. "Tab"
-    b.AutoButtonColor = false
-    b.Text = (icon and icon .. " " or "") .. name
-    b.Font = Enum.Font.GothamBold
-    b.TextSize = 11
-    b.TextColor3 = Theme.SubText
-    b.BackgroundColor3 = Theme.Panel
-    b.BorderSizePixel = 0
-    b.Size = UDim2.fromOffset(math.max(58, #name * 7 + 23), 28)
-    b.ZIndex = 7
-    b.Parent = TabsBar
-    Corner(b, 7)
-    Stroke(b, Theme.Stroke, 1)
-
-    tabButtons[name] = b
-    return b
-end
-
-local function SwitchTab(name)
-    for pageName, page in pairs(pages) do
-        page.Visible = (pageName == name)
-    end
-
-    for tabName, button in pairs(tabButtons) do
-        if tabName == name then
-            button.BackgroundColor3 = Theme.Accent
-            button.TextColor3 = Color3.fromRGB(255,255,255)
-        else
-            button.BackgroundColor3 = Theme.Panel
-            button.TextColor3 = Theme.SubText
+local function setupTouchDetection(character: Model)
+    for _, part in ipairs(character:GetDescendants()) do
+        if part:IsA("BasePart") then
+            local conn = part.Touched:Connect(function(hit)
+                if not flingEnabled then return end
+                local hitChar = hit:FindFirstAncestorOfClass("Model")
+                if not hitChar then return end
+                local myRoot = character:FindFirstChild("HumanoidRootPart")
+                flingCharacter(hitChar, myRoot and myRoot.Position or part.Position)
+            end)
+            table.insert(connections, conn)
         end
     end
 end
 
---==================================================
--- COMPONENTES
---==================================================
-
-local function CreateSectionTitle(parent, text)
-    local holder = Instance.new("Frame")
-    holder.BackgroundTransparency = 1
-    holder.Size = UDim2.new(1, -4, 0, 25)
-    holder.Parent = parent
-
-    local t = Label(holder, text, 12, Theme.SubText)
-    t.Size = UDim2.new(1,0,1,0)
-    t.Font = Enum.Font.GothamBold
-    return holder
+local function clearConnections()
+    for _, c in ipairs(connections) do c:Disconnect() end
+    table.clear(connections)
 end
 
-local function CreateToggle(parent, text, default, callback)
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, -4, 0, 43)
-    row.BackgroundColor3 = Theme.Panel
-    row.BorderSizePixel = 0
-    row.Parent = parent
-    Corner(row, 8)
-    Stroke(row, Theme.Stroke, 1)
-
-    local accent = Instance.new("Frame")
-    accent.Size = UDim2.new(0, 3, 1, -10)
-    accent.Position = UDim2.fromOffset(0, 5)
-    accent.BackgroundColor3 = Theme.Accent
-    accent.BorderSizePixel = 0
-    accent.Parent = row
-    Corner(accent, 2)
-
-    local label = Label(row, text, 12, Theme.Text)
-    label.Position = UDim2.fromOffset(14, 0)
-    label.Size = UDim2.new(1, -65, 1, 0)
-
-    local button = Instance.new("TextButton")
-    button.Text = ""
-    button.AutoButtonColor = false
-    button.Size = UDim2.fromOffset(42, 22)
-    button.Position = UDim2.new(1, -53, 0.5, -11)
-    button.BackgroundColor3 = Color3.fromRGB(57, 57, 82)
-    button.BorderSizePixel = 0
-    button.Parent = row
-    Corner(button, 11)
-
-    local knob = Instance.new("Frame")
-    knob.Size = UDim2.fromOffset(14,14)
-    knob.Position = UDim2.new(0, 4, 0.5, -7)
-    knob.BackgroundColor3 = Color3.fromRGB(245,245,250)
-    knob.BorderSizePixel = 0
-    knob.Parent = button
-    Corner(knob, 99)
-
-    local enabled = default == true
-
-    local function setState(value)
-        enabled = value
-        local targetButton = enabled and Theme.Accent or Color3.fromRGB(57,57,82)
-        local targetPos = enabled and UDim2.new(1,-18,0.5,-7) or UDim2.new(0,4,0.5,-7)
-
-        TweenService:Create(button, TweenInfo.new(0.15), {
-            BackgroundColor3 = targetButton
-        }):Play()
-
-        TweenService:Create(knob, TweenInfo.new(0.15), {
-            Position = targetPos
-        }):Play()
-
-        if callback then
-            callback(enabled)
-        end
+local function onCharacterAdded(character: Model)
+    clearConnections()
+    character:WaitForChild("HumanoidRootPart")
+    if flingEnabled then
+        setupTouchDetection(character)
     end
-
-    button.MouseButton1Click:Connect(function()
-        setState(not enabled)
-    end)
-
-    setState(enabled)
-    return row
 end
 
-local function CreateSlider(parent, text, min, max, default, callback)
-    local row = Instance.new("Frame")
-    row.Size = UDim2.new(1, -4, 0, 62)
-    row.BackgroundColor3 = Theme.Panel
-    row.BorderSizePixel = 0
-    row.Parent = parent
-    Corner(row, 8)
-    Stroke(row, Theme.Stroke, 1)
+LocalPlayer.CharacterAdded:Connect(onCharacterAdded)
+if LocalPlayer.Character then
+    onCharacterAdded(LocalPlayer.Character)
+end
 
-    local accent = Instance.new("Frame")
-    accent.Size = UDim2.new(0,3,1,-10)
-    accent.Position = UDim2.fromOffset(0,5)
-    accent.BackgroundColor3 = Theme.Accent
-    accent.BorderSizePixel = 0
-    accent.Parent = row
-    Corner(accent,2)
+-- ══════════════════════════════════════
+--  GUI
+-- ══════════════════════════════════════
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name        = "FlingTester"
+screenGui.ResetOnSpawn = false
+screenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+screenGui.Parent      = LocalPlayer:WaitForChild("PlayerGui")
 
-    local title = Label(row, text, 12, Theme.Text)
-    title.Position = UDim2.fromOffset(14, 5)
-    title.Size = UDim2.new(1,-55,0,20)
+local frame = Instance.new("Frame")
+frame.Size            = UDim2.new(0, 180, 0, 60)
+frame.Position        = UDim2.new(0, 20, 0, 20)
+frame.BackgroundColor3 = Color3.fromRGB(18, 18, 18)
+frame.BorderSizePixel = 0
+frame.Active          = true
+frame.Draggable       = true
+frame.Parent          = screenGui
 
-    local valueLabel = Label(row, tostring(default), 11, Theme.Accent2)
-    valueLabel.Position = UDim2.new(1,-42,0,5)
-    valueLabel.Size = UDim2.fromOffset(32,20)
-    valueLabel.TextXAlignment = Enum.TextXAlignment.Right
+Instance.new("UICorner", frame).CornerRadius = UDim.new(0, 8)
 
-    local bar = Instance.new("Frame")
-    bar.Position = UDim2.fromOffset(14, 35)
-    bar.Size = UDim2.new(1,-28,0,7)
-    bar.BackgroundColor3 = Color3.fromRGB(42,42,62)
-    bar.BorderSizePixel = 0
-    bar.Parent = row
-    Corner(bar, 99)
+local label = Instance.new("TextLabel")
+label.Size             = UDim2.new(1, 0, 0, 20)
+label.Position         = UDim2.new(0, 0, 0, 4)
+label.BackgroundTransparency = 1
+label.Text             = "FLING ON TOUCH"
+label.TextColor3       = Color3.fromRGB(200, 200, 200)
+label.TextSize         = 11
+label.Font             = Enum.Font.GothamBold
+label.Parent           = frame
 
-    local fill = Instance.new("Frame")
-    fill.Size = UDim2.new(0,0,1,0)
-    fill.BackgroundColor3 = Theme.Accent
-    fill.BorderSizePixel = 0
-    fill.Parent = bar
-    Corner(fill,99)
+local toggleBtn = Instance.new("TextButton")
+toggleBtn.Size          = UDim2.new(0, 140, 0, 28)
+toggleBtn.Position      = UDim2.new(0.5, -70, 0, 26)
+toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+toggleBtn.TextColor3    = Color3.fromRGB(255, 80, 80)
+toggleBtn.Text          = "OFF"
+toggleBtn.TextSize      = 13
+toggleBtn.Font          = Enum.Font.GothamBold
+toggleBtn.BorderSizePixel = 0
+toggleBtn.Parent        = frame
 
-    local knob = Instance.new("Frame")
-    knob.AnchorPoint = Vector2.new(0.5,0.5)
-    knob.Size = UDim2.fromOffset(17,17)
-    knob.BackgroundColor3 = Color3.fromRGB(250,250,255)
-    knob.BorderSizePixel = 0
-    knob.Parent = bar
-    Corner(knob,99)
-    Stroke(knob, Theme.Accent, 1)
+Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 6)
 
-    local draggingSlider = false
-    local value = default
+toggleBtn.MouseButton1Click:Connect(function()
+    flingEnabled = not flingEnabled
 
-    local function setValueFromX(x)
-        local ratio = math.clamp((x - bar.AbsolutePosition.X) / bar.AbsoluteSize.X, 0, 1)
-        value = min + (max-min) * ratio
-
-        if max-min <= 10 then
-            value = math.floor(value * 10 + 0.5) / 10
-        else
-            value = math.floor(value + 0.5)
+    if flingEnabled then
+        toggleBtn.Text             = "ON"
+        toggleBtn.TextColor3       = Color3.fromRGB(80, 255, 120)
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(25, 50, 25)
+        if LocalPlayer.Character then
+            setupTouchDetection(LocalPlayer.Character)
         end
-
-        local pct = (value-min)/(max-min)
-        fill.Size = UDim2.new(pct,0,1,0)
-        knob.Position = UDim2.new(pct,0,0.5,0)
-        valueLabel.Text = tostring(value)
-
-        if callback then
-            callback(value)
-        end
-    end
-
-    local initialPct = math.clamp((default-min)/(max-min),0,1)
-    fill.Size = UDim2.new(initialPct,0,1,0)
-    knob.Position = UDim2.new(initialPct,0,0.5,0)
-
-    bar.InputBegan:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            draggingSlider = true
-            setValueFromX(input.Position.X)
-        end
-    end)
-
-    UserInputService.InputChanged:Connect(function(input)
-        if draggingSlider and (
-            input.UserInputType == Enum.UserInputType.MouseMovement
-            or input.UserInputType == Enum.UserInputType.Touch
-        ) then
-            setValueFromX(input.Position.X)
-        end
-    end)
-
-    UserInputService.InputEnded:Connect(function(input)
-        if input.UserInputType == Enum.UserInputType.MouseButton1
-            or input.UserInputType == Enum.UserInputType.Touch then
-            draggingSlider = false
-        end
-    end)
-
-    return row
-end
-
-local function CreateButton(parent, text, callback)
-    local b = Instance.new("TextButton")
-    b.AutoButtonColor = false
-    b.Text = text
-    b.Font = Enum.Font.Gotham
-    b.TextSize = 12
-    b.TextColor3 = Theme.Text
-    b.BackgroundColor3 = Theme.Panel
-    b.BorderSizePixel = 0
-    b.Size = UDim2.new(1,-4,0,43)
-    b.Parent = parent
-    Corner(b,8)
-    Stroke(b,Theme.Stroke,1)
-
-    b.MouseEnter:Connect(function()
-        TweenService:Create(b,TweenInfo.new(0.12),{
-            BackgroundColor3 = Theme.Panel2
-        }):Play()
-    end)
-
-    b.MouseLeave:Connect(function()
-        TweenService:Create(b,TweenInfo.new(0.12),{
-            BackgroundColor3 = Theme.Panel
-        }):Play()
-    end)
-
-    b.MouseButton1Click:Connect(function()
-        if callback then callback() end
-    end)
-
-    return b
-end
-
---==================================================
--- ABAS E CONTEÚDO
---==================================================
-
-local tabNames = {
-    {"Combate","⚔"},
-    {"Player","●"},
-    {"Aimbot","◎"},
-    {"Carros","▣"},
-    {"Farms","◆"},
-    {"ESP+","◈"},
-    {"Misc","✦"},
-    {"Mobile","▤"},
-}
-
-for _, info in ipairs(tabNames) do
-    local page = CreatePage(info[1])
-    local tab = CreateTab(info[1], info[2])
-
-    tab.MouseButton1Click:Connect(function()
-        SwitchTab(info[1])
-    end)
-end
-
--- Combate
-do
-    local p = pages["Combate"]
-    CreateSectionTitle(p, "Combate")
-
-    CreateSlider(p, "Velocidade", 0, 100, 0, function(v)
-        -- callback para você ligar à sua lógica
-    end)
-
-    CreateToggle(p, "Ativar Hitbox", false, function(enabled)
-        -- callback para você ligar à sua lógica
-    end)
-
-    CreateSlider(p, "Tamanho Hitbox", 0, 100, 0, function(v)
-        -- callback para você ligar à sua lógica
-    end)
-
-    CreateButton(p, "Puxar Itens", function()
-        -- callback
-    end)
-
-    CreateToggle(p, "Revisar (TECLA T)", false, function(enabled)
-        -- callback
-    end)
-
-    CreateButton(p, "Revisar UI Mobile", function()
-        -- callback
-    end)
-
-    CreateToggle(p, "Auto Kill", false, function(enabled)
-        -- callback
-    end)
-end
-
--- Player
-do
-    local p = pages["Player"]
-    CreateSectionTitle(p, "Jogador")
-    CreateSlider(p, "WalkSpeed", 0, 100, 16, function(v) end)
-    CreateSlider(p, "JumpPower", 0, 150, 50, function(v) end)
-    CreateToggle(p, "Infinite Jump", false, function(v) end)
-    CreateToggle(p, "NoClip", false, function(v) end)
-end
-
--- Aimbot
-do
-    local p = pages["Aimbot"]
-    CreateSectionTitle(p, "Aimbot")
-    CreateToggle(p, "Ativar", false, function(v) end)
-    CreateToggle(p, "Somente inimigos", true, function(v) end)
-    CreateSlider(p, "FOV", 0, 360, 90, function(v) end)
-end
-
--- Carros
-do
-    local p = pages["Carros"]
-    CreateSectionTitle(p, "Veículos")
-    CreateButton(p, "Spawnar veículo", function() end)
-    CreateSlider(p, "Velocidade do veículo", 0, 200, 50, function(v) end)
-    CreateToggle(p, "Auto dirigir", false, function(v) end)
-end
-
--- Farms
-do
-    local p = pages["Farms"]
-    CreateSectionTitle(p, "Farms")
-    CreateToggle(p, "Farm automático", false, function(v) end)
-    CreateToggle(p, "Coletar automaticamente", false, function(v) end)
-end
-
--- ESP+
-do
-    local p = pages["ESP+"]
-    CreateSectionTitle(p, "ESP")
-    CreateToggle(p, "ESP", false, function(v) end)
-    CreateToggle(p, "Nome", true, function(v) end)
-    CreateToggle(p, "Distância", false, function(v) end)
-end
-
--- Misc
-do
-    local p = pages["Misc"]
-    CreateSectionTitle(p, "Diversos")
-    CreateToggle(p, "Anti AFK", false, function(v) end)
-    CreateToggle(p, "Notificações", true, function(v) end)
-    CreateButton(p, "Recarregar interface", function()
-        -- reservado
-    end)
-end
-
--- Mobile
-do
-    local p = pages["Mobile"]
-    CreateSectionTitle(p, "Mobile")
-    CreateToggle(p, "Modo mobile", false, function(v) end)
-    CreateButton(p, "Abrir menu compacto", function() end)
-end
-
---==================================================
--- MINIMIZAR / FECHAR
---==================================================
-
-local minimized = false
-local fullSize = Main.Size
-local fullShadowSize = Shadow.Size
-
-Minimize.MouseButton1Click:Connect(function()
-    minimized = not minimized
-
-    if minimized then
-        Minimize.Text = "+"
-        Content.Visible = false
-        TabsBar.Visible = false
-
-        Main.Size = UDim2.fromOffset(420,52)
-        Shadow.Size = UDim2.fromOffset(440,72)
     else
-        Minimize.Text = "−"
-        Content.Visible = true
-        TabsBar.Visible = true
-
-        Main.Size = fullSize
-        Shadow.Size = fullShadowSize
+        toggleBtn.Text             = "OFF"
+        toggleBtn.TextColor3       = Color3.fromRGB(255, 80, 80)
+        toggleBtn.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+        clearConnections()
     end
 end)
-
-Close.MouseButton1Click:Connect(function()
-    GUI:Destroy()
-end)
-
--- Abre inicialmente em Combate
-SwitchTab("Combate")
